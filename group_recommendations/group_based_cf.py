@@ -4,95 +4,83 @@ import os
 from user_based_cf import getRecommendedItems
 from user_based_cf import basePred
 
-def addUsersPred(df, users, items):
+def getUserPreds(df, user, items, k=10):
+    user_pred = []
+
+    for item in items:
+        u_ratings = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
+
+        if u_ratings.empty:
+            u_ratings = basePred(df, user, item)
+        else:
+            u_ratings = u_ratings.values[0]
+    
+        user_pred.append(u_ratings)
+    
+    return sorted(user_pred, key=lambda x: x, reverse=True)[:k]
+
+def generateUsersRatings(df, users, items):
+    headers = ['userId', 'movieId', 'rating']
+    u_ratings = pd.DataFrame(columns=headers)
+    
     for user in users:
         for item in items:
-            uRating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-            
-            if uRating.empty:
-                newRow = {'userId': user, 'movieId': item, 'rating': basePred(df, user, item),  'timestamp': 0}
-                df.loc[len(df)] = newRow
+            u_rating = getUserPreds(df, user, [item])[0]
+            new_row = [user, item, u_rating]
+            u_ratings.loc[len(u_ratings)] = new_row
+    
+    return u_ratings
 
 def getGroupAveragePred(df, items, users, k=10):
-    item2pred = []
+    item_to_pred = []
+
     for item in items:
         sum = 0
         for user in users:
-            uRating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-
-            if uRating.empty:
-                uRating = basePred(df, user, item)
-            else:
-                uRating = uRating.values[0]
+            u_rating = getUserPreds(df, user, [item])[0]            
+            sum += u_rating
             
-            sum += uRating
-            
-        item2pred.append((item, sum / len(users)))
+        item_to_pred.append((item, sum / len(users)))
 
-    return sorted(item2pred, key=lambda x: x[1], reverse=True)[:k]
+    return sorted(item_to_pred, key=lambda x: x[1], reverse=True)[:k]
 
 def getGroupLeastMiseryPred(df, items, users, k=10):
-    item2pred = []
+    item_to_pred = []
+
     for item in items:
         min = np.inf
         for user in users:
-            uRating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-
-            if uRating.empty:
-                uRating = basePred(df, user, item)
-            else:
-                uRating = uRating.values[0]
+            u_rating = getUserPreds(df, user, [item])[0]      
+            sum += u_rating
                 
-            if uRating < min:
-                min = uRating
+            if u_rating < min:
+                min = u_rating
             
-        item2pred.append((item, min))
+        item_to_pred.append((item, min))
 
-    return sorted(item2pred, key=lambda x: x[1], reverse=True)[:k]
-
-def getUserPred(df, user, items, k=10):
-    userPred = []
-
-    for item in items:
-        uRating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-
-        if uRating.empty:
-            uRating = basePred(df, user, item)
-        else:
-            uRating = uRating.values[0]
-    
-        userPred.append(uRating)
-    
-    return sorted(userPred, key=lambda x: x, reverse=True)[:k]
+    return sorted(item_to_pred, key=lambda x: x[1], reverse=True)[:k]
 
 def getSatisfaction(df, items, user):
-    den = sum(getUserPred(df, user, items, len(items)))
+    den = sum(getUserPreds(df, user, items, len(items)))
     
+    num = 0
     for item in items:
-        num = 0
-            
-        uRating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-
-        if uRating.empty:
-            uRating = basePred(df, user, item)
-        else:
-            uRating = uRating.values[0]
-            
-        num += uRating
+        u_rating = getUserPreds(df, user, [item])[0]
+        num += u_rating
     
     return num / den
 
 def getSequentialRecommendations(df, items, users, k=10):
     items = [x[0] for x in getGroupAveragePred(df, items, users, int(len(items)/2))]
-    candidateSet = [items.pop(0)]
+    candidate_set = [items.pop(0)]
 
     for _ in range(0, k):
         min = np.inf
-        bestItem = None
+        best_item = None
 
         for item in items:
             satisfaction = 0
-            tmp = candidateSet.copy()
+            tmp = candidate_set.copy()
             tmp.append(item)
             
             for i in range(0, len(users)):
@@ -101,30 +89,26 @@ def getSequentialRecommendations(df, items, users, k=10):
 
             if satisfaction < min:
                 min = satisfaction
-                bestItem = item
+                best_item = item
 
-        items.remove(bestItem)
-        candidateSet.append(bestItem)
+        items.remove(best_item)
+        candidate_set.append(best_item)
     
-    return candidateSet
+    return candidate_set
 
 def main():
-    dfPath = os.path.join(os.getcwd(), 'group_recommendations', 'ml-latest-small', 'ratings.csv')
-    df = pd.read_csv(dfPath)
-    print(df.head())
-    print("\nRow num: ", df.shape[0])
-
+    df_path = os.path.join(os.getcwd(), 'group_recommendations', 'ml-latest-small', 'ratings.csv')
+    df = pd.read_csv(df_path)
     users = [1, 2, 5]
 
     items = []
     for user in users:
-        uPred = getRecommendedItems(df, user)
-        items.extend([x[0] for x in uPred])
-    print(len(items))
+        u_items = getRecommendedItems(df, user)
+        items.extend([x[0] for x in u_items])
 
-    addUsersPred(df, users, items)
+    u_ratings = generateUsersRatings(df, users, items)
 
-    print(getSequentialRecommendations(df, items, users, k=10))
+    print(getSequentialRecommendations(u_ratings, items, users, k=10))
 
 if __name__ == "__main__":
     main()
