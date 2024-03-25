@@ -227,7 +227,7 @@ def evaluatePred(df, sample, pred_fun = recursivePred, sim_th1 = 0.6, sim_th2 = 
     return np.mean(err), np.std(err), np.max(err), tot_time/len(sample)
 
 def main():
-    df_path = os.path.join(os.getcwd(), 'group_recommendations', 'ml-latest-small', 'ratings.csv')
+    df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'ratings.csv')
     df = pd.read_csv(df_path)
 
     sample = getRandomSample(df, 5, 10)
