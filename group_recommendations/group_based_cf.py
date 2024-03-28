@@ -117,7 +117,6 @@ def itemToScore(df, items, user, k=10):
     return items_to_score
 
 def customRecommendations(df, items, users, k=10):
-
     users_scores = {}
     for user in users:
         users_scores[user] = itemToScore(df, items, user, len(items))
@@ -209,4 +208,4 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
+    main()
