@@ -3,43 +3,77 @@ import pandas as pd
 import numpy as np
 import os
 from user_based_cf import getRecommendedItems
-from user_based_cf import basePred
+from user_based_cf import recursivePred
+from user_based_cf import pearsonSimilarity
 
-def itemToRating(df, items, user, k=10):
-    user_pred = []
+def getSimUser(df, user, k = 1, sim_th = 0.7):
+    candidates = []
+    for candidate in df['userId'].unique():
+        sim = pearsonSimilarity(df, candidate, user)
+        if sim < sim_th or candidate == user: continue
+
+        if k == 1: return candidate
+
+        candidates.append(candidate)
+        if len(candidates) == k: return candidates
+    
+    return None
+
+def getDissUser(df, user, k = 1, diss_th = -0.7):
+    candidates = []
+    for candidate in df['userId'].unique():
+        sim = pearsonSimilarity(df, candidate, user)
+        if sim > diss_th or candidate == user: continue
+
+        if k == 1: return candidate
+
+        candidates.append(candidate)
+        if len(candidates) == k: return candidates
+    
+    return None
+
+def itemToUserRating(df, item, user):
+    rating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
+
+    if rating.empty:
+        rating = recursivePred(df, user, item)
+    else:
+        rating = rating.values[0]
+    
+    return rating
+
+def itemsToUserScore(df, items, user):
+    items_to_score = {}
 
     for item in items:
-        u_ratings = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
-
-        if u_ratings.empty:
-            u_ratings = (item, basePred(df, user, item))
-        else:
-            u_ratings = (item, u_ratings.values[0])
+        items_to_score[item] = itemToUserRating(df, item, user)
     
-        user_pred.append(u_ratings)
+    items_to_score = sorted(items_to_score.items(), key=lambda x: x[1])
+    items_to_score = {key_value[0]: posizione for posizione, key_value in enumerate(items_to_score, 1)}
     
-    return sorted(user_pred, key=lambda x: x[1], reverse=True)[:k]
+    return  items_to_score
 
-def getUserRatings(df, items, user, k=10):
-    return [x[1] for x in itemToRating(df, items, user, k)]
-
-def getUserRating(df, item, user):
-    return itemToRating(df, [item], user)[0][1]
-
+def topRatings(df, items, user, k=10):
+    ratings = []
+    
+    for item in items:
+        ratings.append(itemToUserRating(df, item, user))
+    
+    return sorted(ratings, reverse=True)[:k]
 
 def generateUsersRatings(df, items, users):
     headers = ['userId', 'movieId', 'rating']
-    u_ratings = pd.DataFrame(columns=headers)
+    ratings_u = pd.DataFrame(columns=headers)
     
     with pb.ProgressBar(max_value=len(users)*len(items)) as bar:
         for user in users:
             for item in items:
-                u_rating = getUserRating(df, item, user)
-                new_row = [user, item, u_rating]
-                u_ratings.loc[len(u_ratings)] = new_row
+                rating = itemToUserRating(df, item, user)
+                new_row = [user, item, rating]
+                ratings_u.loc[len(ratings_u)] = new_row
                 bar.next()
     
-    return u_ratings
+    return ratings_u
 
 def groupAveragePred(df, items, users, k=10):
     item_to_pred = []
@@ -47,7 +81,7 @@ def groupAveragePred(df, items, users, k=10):
     for item in items:
         sum = 0
         for user in users:
-            u_rating = getUserRating(df, item, user)         
+            u_rating = itemToUserRating(df, item, user)         
             sum += u_rating
             
         item_to_pred.append((item, sum / len(users)))
@@ -60,7 +94,7 @@ def groupLeastMiseryPred(df, items, users, k=10):
     for item in items:
         min = np.inf
         for user in users:
-            u_rating = getUserRating(df, item, user)
+            u_rating = itemToUserRating(df, item, user)
                 
             if u_rating < min:
                 min = u_rating
@@ -69,12 +103,12 @@ def groupLeastMiseryPred(df, items, users, k=10):
 
     return sorted(item_to_pred, key=lambda x: x[1], reverse=True)[:k]
 
-def getSatisfaction(df, items, candidate_set, user):
-    den = sum(getUserRatings(df, items, user, len(candidate_set)))
+def getSatisfaction(df, items, group_items, user):
+    den = np.sum(topRatings(df, items, user, len(group_items)))
     
     num = 0
-    for candidate in candidate_set:
-        u_rating = getUserRating(df, candidate, user)
+    for item in group_items:
+        u_rating = itemToUserRating(df, item, user)
         num += u_rating
     
     return num / den
@@ -105,23 +139,12 @@ def sequentialRecommendations(df, items, users, k=10):
     
     return candidate_set
 
-def itemToScore(df, items, user, k=10):
-    items_to_score = {}
-    u_ratings = itemToRating(df, items, user, k)
-
-    score = len(u_ratings)
-    for rating in u_ratings:
-        items_to_score[rating[0]] = score
-        score -= 1
-
-    return items_to_score
-
 def customRecommendations(df, items, users, k=10):
     users_scores = {}
     for user in users:
-        users_scores[user] = itemToScore(df, items, user, len(items))
+        users_scores[user] = itemsToUserScore(df, items, user)
 
-    items_rank = []
+    items_score = []
     for item in items:
         disagreement, global_rank = 1, 0
 
@@ -133,45 +156,50 @@ def customRecommendations(df, items, users, k=10):
                 disagreement += abs(users_scores[users[i]][item] - users_scores[users[j]][item])
 
         score = disagreement / global_rank
-        items_rank.append((item, score))
+        items_score.append((item, score))
 
-    return sorted(items_rank, key=lambda x: x[1])[:k]
+    return sorted(items_score, key=lambda x: x[1])[:k]
 
 def main():
     df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'ratings.csv')
     df = pd.read_csv(df_path)
     
-    np.random.seed(42)
-    users = np.random.choice(df['userId'].unique(), 3, replace=False)
+    users = [17]
+    users.append(getSimUser(df, users[0]))
+    users.append(getDissUser(df, users[0]))
+
+    print(users)
 
     items = set()
     for user in users:
-        u_items = getRecommendedItems(df, user, 4.5, 4, 10, 5)
+        u_items = getRecommendedItems(df, user, 3, 4, 20, 4)
+        print(u_items)
         items.update([x[0] for x in u_items])
 
-    u_ratings = generateUsersRatings(df, items, users)
+    ratings = generateUsersRatings(df, items, users)
+    print(ratings)
     
     headers = ['pred_fun',  'user1_sat', 'user2_sat', 'user3_sat']
     stats = pd.DataFrame(columns=headers)
 
-    recommended_items = [x[0] for x in groupAveragePred(u_ratings, items, users, 4)]
-    new_row = ['groupAveragePred', getSatisfaction(u_ratings, items, recommended_items, users[0]), getSatisfaction(u_ratings, items, recommended_items, users[1]), getSatisfaction(u_ratings, items, recommended_items, users[2])]
+    recommended_items = [x[0] for x in groupAveragePred(ratings, items, users, 4)]
+    new_row = ['groupAveragePred', getSatisfaction(ratings, items, recommended_items, users[0]), getSatisfaction(ratings, items, recommended_items, users[1]), getSatisfaction(ratings, items, recommended_items, users[2])]
     stats.loc[len(stats)] = new_row
 
-    recommended_items = [x[0] for x in groupLeastMiseryPred(u_ratings, items, users, 4)]
-    new_row = ['groupLeastMiseryPred', getSatisfaction(u_ratings, items, recommended_items, users[0]), getSatisfaction(u_ratings, items, recommended_items, users[1]), getSatisfaction(u_ratings, items, recommended_items, users[2])]
+    recommended_items = [x[0] for x in groupLeastMiseryPred(ratings, items, users, 4)]
+    new_row = ['groupLeastMiseryPred', getSatisfaction(ratings, items, recommended_items, users[0]), getSatisfaction(ratings, items, recommended_items, users[1]), getSatisfaction(ratings, items, recommended_items, users[2])]
     stats.loc[len(stats)] = new_row
 
-    recommended_items = [x[0] for x in customRecommendations(u_ratings, items, users, 4)]
-    new_row = ['customRecommendations', getSatisfaction(u_ratings, items, recommended_items, users[0]), getSatisfaction(u_ratings, items, recommended_items, users[1]), getSatisfaction(u_ratings, items, recommended_items, users[2])]
+    recommended_items = [x[0] for x in customRecommendations(ratings, items, users, 4)]
+    new_row = ['customRecommendations', getSatisfaction(ratings, items, recommended_items, users[0]), getSatisfaction(ratings, items, recommended_items, users[1]), getSatisfaction(ratings, items, recommended_items, users[2])]
     stats.loc[len(stats)] = new_row
 
-    recommended_items = sequentialRecommendations(u_ratings, items, users, 4)
-    new_row = ['sequentialRecommendations', getSatisfaction(u_ratings, items, recommended_items, users[0]), getSatisfaction(u_ratings, items, recommended_items, users[1]), getSatisfaction(u_ratings, items, recommended_items, users[2])]
+    recommended_items = sequentialRecommendations(ratings, items, users, 4)
+    new_row = ['sequentialRecommendations', getSatisfaction(ratings, items, recommended_items, users[0]), getSatisfaction(ratings, items, recommended_items, users[1]), getSatisfaction(ratings, items, recommended_items, users[2])]
     stats.loc[len(stats)] = new_row
 
     print(stats)
-    stats.to_csv('group_sat.csv', index=False)
+    #stats.to_csv('group_sat.csv', index=False)
 
 def test():
     df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'test.csv')
@@ -205,7 +233,6 @@ def test():
 
     print(stats)
     stats.to_csv('group_sat.csv', index=False)
-
 
 if __name__ == "__main__":
     main()

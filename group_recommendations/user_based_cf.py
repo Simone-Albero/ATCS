@@ -113,7 +113,7 @@ def basePred(df, user, item, sim_fun = pearsonSimilarity, k = 20):
     return mean_u + num / den
 
 
-def recursivePred(df, user, item, lev = 0, blacklist = [], sim_fun = pearsonSimilarity, k1 = 10, k2 = 10, lmb = 0.8, lev_th = 1):
+def recursivePred(df, user, item, lev = 0, blacklist = [], sim_fun = pearsonSimilarity, k1 = 15, k2 = 5, lmb = 0.3, lev_th = 1):
     if lev >= lev_th:
         return basePred(df, user, item, sim_fun, k1)
 
@@ -138,7 +138,6 @@ def recursivePred(df, user, item, lev = 0, blacklist = [], sim_fun = pearsonSimi
     
 def getRecommendedItems(df, user, rate_th = 4.5, pred_th = 4, max_neighbors = 10, k = 10, sim_fun = pearsonSimilarity):
     u_items = set(df[df['userId'] == user]['movieId'])
-    
     neighbors = getNeighbors(df, user, None, [], sim_fun, max_neighbors)
     
     n_items = set()
@@ -146,7 +145,7 @@ def getRecommendedItems(df, user, rate_th = 4.5, pred_th = 4, max_neighbors = 10
         items = set(df[(df['userId'] == neighbor) & (df['rating'] >= rate_th)]['movieId'])
         n_items.update(items)
 
-    not_yet_rated = list(n_items - u_items)
+    not_yet_rated = list(n_items - u_items)  
     random.shuffle(not_yet_rated)
 
     item_to_pred = []
@@ -209,14 +208,14 @@ def test():
 
     headers = ['pred_fun', 'sim_fun', 'k1', 'k2', 'lmb', 'lev_th', 'mean_err', 'std_err', 'max_err', 'mean_time']
 
-    stats = pd.DataFrame(columns=headers) # Evaluating k1 on basePred
-    for k1 in np.arange(5, 35, 5):
-        mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, basePred, k1)
-        new_row = ['basePred', 'pearsonSimilarity', k1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
-        stats.loc[len(stats)] = new_row
+    # stats = pd.DataFrame(columns=headers) # Evaluating k1 on basePred
+    # for k1 in np.arange(5, 35, 5):
+    #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, basePred, k1)
+    #     new_row = ['basePred', 'pearsonSimilarity', k1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
+    #     stats.loc[len(stats)] = new_row
 
-    print(stats)
-    stats.to_csv('k1.csv', index=False)
+    # print(stats)
+    # stats.to_csv('k1.csv', index=False)
     
     # stats = pd.DataFrame(columns=headers) # Evaluating similarities on basePred
     # K1 = 20
@@ -229,15 +228,15 @@ def test():
     # stats.to_csv('similarities.csv', index=False)
 
     
-    # stats = pd.DataFrame(columns=headers) # Evaluating k2 on recursivePred
-    # K1, LMB, LEV_TH = 15, 0.3, 1
-    # for k2 in np.arange(5, 25, 5):
-    #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recursivePred, K1, k2, pearsonSimilarity, LMB, LEV_TH)
-    #     new_row = ['recursivePred', 'pearsonSimilarity', K1, k2, LMB, LEV_TH, mean_err, std_err, max_err, mean_time]
-    #     stats.loc[len(stats)] = new_row
+    stats = pd.DataFrame(columns=headers) # Evaluating k2 on recursivePred
+    K1, LMB, LEV_TH = 15, 0.3, 1
+    for k2 in np.arange(5, 25, 5):
+        mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recursivePred, K1, k2, pearsonSimilarity, LMB, LEV_TH)
+        new_row = ['recursivePred', 'pearsonSimilarity', K1, k2, LMB, LEV_TH, mean_err, std_err, max_err, mean_time]
+        stats.loc[len(stats)] = new_row
 
-    # print(stats)
-    # stats.to_csv('k2.csv', index=False)
+    print(stats)
+    stats.to_csv('k2.csv', index=False)
 
     
     # stats = pd.DataFrame(columns=headers) # Evaluating lmb on recursivePred
@@ -265,11 +264,12 @@ def main():
     df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'ratings.csv')
     df = pd.read_csv(df_path)
 
-    print(getNeighbors(df, 1))
-    #print(timeit.timeit(lambda: getRecommendedItems(df, 1), number=5))
+    #print(getNeighbors(df, 3))
+    print(getRecommendedItems(df, 3, 3, 4, 20, 4))
+    #print(timeit.timeit(lambda: getRecommendedItems(df, 1), number=1))
 
 
 
 
 if __name__ == "__main__":
-    test()
+    main()
