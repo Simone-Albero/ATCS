@@ -136,7 +136,7 @@ def recursivePred(df, user, item, lev = 0, blacklist = [], sim_fun = pearsonSimi
     if den == 0 or neighbors == []: return 0
     return mean_u + num / den
     
-def getRecommendedItems(df, user, rate_th = 4.5, pred_th = 4, max_neighbors = 10, k = 10, sim_fun = pearsonSimilarity):
+def getRecommendedItems(df, user, rate_th = 3, pred_th = 4, max_neighbors = 10, k = 10, sim_fun = pearsonSimilarity):
     u_items = set(df[df['userId'] == user]['movieId'])
     neighbors = getNeighbors(df, user, None, [], sim_fun, max_neighbors)
     

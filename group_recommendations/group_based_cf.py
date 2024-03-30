@@ -2,6 +2,7 @@ import progressbar as pb
 import pandas as pd
 import numpy as np
 import os
+
 from user_based_cf import getRecommendedItems
 from user_based_cf import recursivePred
 from user_based_cf import pearsonSimilarity
@@ -75,31 +76,37 @@ def generateUsersRatings(df, items, users):
     
     return ratings_u
 
+def getAverageScore(df, item, users):
+    sum = 0
+    for user in users:
+        u_rating = itemToUserRating(df, item, user)         
+        sum += u_rating
+            
+    return sum / len(users)
+
 def groupAveragePred(df, items, users, k=10):
     item_to_pred = []
 
     for item in items:
-        sum = 0
-        for user in users:
-            u_rating = itemToUserRating(df, item, user)         
-            sum += u_rating
-            
-        item_to_pred.append((item, sum / len(users)))
+        item_to_pred.append(getAverageScore(df, item, users))
 
     return sorted(item_to_pred, key=lambda x: x[1], reverse=True)[:k]
+
+def getLeastScore(df, item, users):
+    min_score = np.inf
+    for user in users:
+        u_rating = itemToUserRating(df, item, user)
+                
+        if u_rating < min_score:
+            min_score = u_rating
+    
+    return min_score
 
 def groupLeastMiseryPred(df, items, users, k=10):
     item_to_pred = []
 
-    for item in items:
-        min = np.inf
-        for user in users:
-            u_rating = itemToUserRating(df, item, user)
-                
-            if u_rating < min:
-                min = u_rating
-            
-        item_to_pred.append((item, min))
+    for item in items:        
+        item_to_pred.append(getLeastScore(df, item, users))
 
     return sorted(item_to_pred, key=lambda x: x[1], reverse=True)[:k]
 
