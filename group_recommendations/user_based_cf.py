@@ -44,10 +44,10 @@ def jaccardSimilarity(df, user_x, user_y):
     corated_items = getCoRatedItems(df, user_x, user_y)
     if corated_items.empty: return 0
 
-    co_ratings_x, co_ratings_y = set(corated_items['rating_x']), set(corated_items['rating_y'])
+    ratings_x, ratings_y = set(df[df['userId'] == user_x]['rating']), set(df[df['userId'] == user_y]['rating'])
 
-    intersection = len(co_ratings_x.intersection(co_ratings_y))
-    union = len(co_ratings_x.union(co_ratings_y))
+    intersection = corated_items.shape[0]
+    union = len(ratings_x.union(ratings_y)) 
 
     if union == 0: return 0
     return intersection / union
@@ -68,7 +68,7 @@ def manhattanDistance(df, user_x, user_y):
 
     return 1 / (1 + np.sum(np.abs(co_ratings_x - co_ratings_y)))
 
-class Reccomender:
+class Recommender:
 
     def __init__(self, sim_fun = pearsonSimilarity, k1 = 20, k2 = 5, lmb = 0.2, lev_th = 1, sim_th = 0.3):
         self.sim_cache = {}
@@ -227,7 +227,7 @@ def test():
 
     # stats = pd.DataFrame(columns=headers) # Evaluating k1 on basePred
     # for k1 in np.arange(5, 35, 5):
-    #     recc = Reccomender(pearsonSimilarity, k1, None, None, 0)
+    #     recc = Recommender(pearsonSimilarity, k1, None, None, 0)
     #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
     #     new_row = ['basePred', 'pearsonSimilarity', k1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
     #     stats.loc[len(stats)] = new_row
@@ -238,7 +238,7 @@ def test():
     # stats = pd.DataFrame(columns=headers) # Evaluating similarities on basePred
     # K1 = 20
     # for sim_fun in [pearsonSimilarity, cosineSimilarity, jaccardSimilarity, euclideanDistance, manhattanDistance]:
-    #     recc = Reccomender(sim_fun, K1, None, None, 0) 
+    #     recc = Recommender(sim_fun, K1, None, None, 0) 
     #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
     #     new_row = ['basePred', sim_fun.__name__, K1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
     #     stats.loc[len(stats)] = new_row
@@ -250,7 +250,7 @@ def test():
     # stats = pd.DataFrame(columns=headers) # Evaluating k2 on recursivePred
     # K1, LMB, LEV_TH = 20, 0.2, 1
     # for k2 in np.arange(5, 25, 5):
-    #     recc = Reccomender(pearsonSimilarity, K1, k2, LMB, LEV_TH)
+    #     recc = Recommender(pearsonSimilarity, K1, k2, LMB, LEV_TH)
     #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
     #     new_row = ['recursivePred', 'pearsonSimilarity', K1, k2, LMB, LEV_TH, mean_err, std_err, max_err, mean_time]
     #     stats.loc[len(stats)] = new_row
@@ -262,7 +262,7 @@ def test():
     # stats = pd.DataFrame(columns=headers) # Evaluating lmb on recursivePred
     # K1, K2, LEV_TH = 20, 5, 1
     # for lmb in np.arange(0.1, 1.1, 0.1):
-    #     recc = Reccomender(pearsonSimilarity, K1, K2, lmb, LEV_TH)
+    #     recc = Recommender(pearsonSimilarity, K1, K2, lmb, LEV_TH)
     #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
     #     new_row = ['recursivePred', 'pearsonSimilarity', K1, K2, lmb, LEV_TH, mean_err, std_err, max_err, mean_time]
     #     stats.loc[len(stats)] = new_row
@@ -271,23 +271,23 @@ def test():
     # stats.to_csv('lmb.csv', index=False)
 
     
-    stats = pd.DataFrame(columns=headers) # Evaluating lev_th on recursivePred
-    K1, K2, LMB= 20, 5, 0.1
-    for lev_th in np.arange(0, 3, 1):
-        recc = Reccomender(pearsonSimilarity, K1, K2, LMB, lev_th)
-        mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
-        new_row = ['recursivePred', 'pearsonSimilarity', K1, K2, LMB, lev_th, mean_err, std_err, max_err, mean_time]
-        stats.loc[len(stats)] = new_row
+    # stats = pd.DataFrame(columns=headers) # Evaluating lev_th on recursivePred
+    # K1, K2, LMB= 20, 5, 0.1
+    # for lev_th in np.arange(0, 3, 1):
+    #     recc = Recommender(pearsonSimilarity, K1, K2, LMB, lev_th)
+    #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
+    #     new_row = ['recursivePred', 'pearsonSimilarity', K1, K2, LMB, lev_th, mean_err, std_err, max_err, mean_time]
+    #     stats.loc[len(stats)] = new_row
 
-    print(stats)
-    stats.to_csv('lev_th.csv', index=False)
+    # print(stats)
+    # stats.to_csv('lev_th.csv', index=False)
 
     
 def main():
     df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'ratings.csv')
     df = pd.read_csv(df_path)
 
-    recc = Reccomender()
+    recc = Recommender()
     
     #users = recc.getNeighbors(df, 1)
     #users = [x[0] for x in users]

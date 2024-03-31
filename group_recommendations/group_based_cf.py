@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from user_based_cf import Reccomender
+from user_based_cf import Recommender
 from user_based_cf import pearsonSimilarity
 
 def getSimUser(df, user, k = 1, sim_th = 0.7):
@@ -32,20 +32,20 @@ def getDissUser(df, user, k = 1, diss_th = -0.7):
     
     return None
 
-class GroupReccomender:
+class GroupRecommender:
 
     def __init__(self):
-        self.recc = Reccomender()
+        self.rec = Recommender()
         self.pred_cache = {}
         self.curr_items = None
 
     def getRecommendedItems(self, df, user):
-        return self.recc.getRecommendedItems(df, user)
+        return self.rec.getRecommendedItems(df, user)
     
     def individualRecommendations(self, df, users):
         items = set()
         for user in users:
-            u_items = self.recc.getRecommendedItems(df, user)
+            u_items = self.rec.getRecommendedItems(df, user)
             items.update([x[0] for x in u_items])
 
         self.curr_items = items
@@ -56,7 +56,7 @@ class GroupReccomender:
         rating = df[(df['userId'] == user) & (df['movieId'] == item)]['rating']
 
         if rating.empty:
-            rating = self.recc.recursivePred(df, user, item)
+            rating = self.rec.recursivePred(df, user, item)
         else:
             rating = rating.values[0]
 
@@ -195,7 +195,7 @@ def main():
     print(users)
 
     
-    recc = GroupReccomender()
+    recc = GroupRecommender()
     headers = ['pred_fun',  'user1_sat', 'user2_sat', 'user3_sat', 'user4_sat', 'user5_sat']
     stats = pd.DataFrame(columns=headers)
 
