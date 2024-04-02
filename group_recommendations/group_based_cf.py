@@ -165,20 +165,21 @@ class GroupRecommender:
 
         users_scores = {}
         for user in users:
-            users_scores[user] = self.itemsToUserScore(df, items, user)
+            for item in items:
+                users_scores[(user, item)] = self.itemToUserRating(df, item, user)
 
         items_score = []
         for item in items:
-            disagreement, global_rank = 1, 0
+            disagreement, global_rating = 1, 0
 
             for user in users:
-                global_rank += users_scores[user][item]
+                global_rating += users_scores[(user, item)]
 
             for i in range(0, len(users)):
                 for j in range(i+1, len(users)):
-                    disagreement += abs(users_scores[users[i]][item] - users_scores[users[j]][item])
+                    disagreement += abs(users_scores[(users[i],item)] - users_scores[(users[j],item)])
 
-            score = disagreement / global_rank
+            score = disagreement / global_rating
             items_score.append((item, score))
 
         return sorted(items_score, key=lambda x: x[1])[:k]
@@ -187,7 +188,7 @@ def main():
     df_path = os.path.join(os.getcwd(), 'group_recommendations', 'dataset', 'ratings.csv')
     df = pd.read_csv(df_path)
     
-    users = [1]
+    users = [17]
     users += getSimUser(df, users[0], 3, 0.5)
     diss = getDissUser(df, users[0])
     users.append(diss)

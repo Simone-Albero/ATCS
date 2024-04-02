@@ -235,16 +235,16 @@ def test():
     # print(stats)
     # stats.to_csv('k1.csv', index=False)
     
-    # stats = pd.DataFrame(columns=headers) # Evaluating similarities on basePred
-    # K1 = 20
-    # for sim_fun in [pearsonSimilarity, cosineSimilarity, jaccardSimilarity, euclideanDistance, manhattanDistance]:
-    #     recc = Recommender(sim_fun, K1, None, None, 0) 
-    #     mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
-    #     new_row = ['basePred', sim_fun.__name__, K1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
-    #     stats.loc[len(stats)] = new_row
+    stats = pd.DataFrame(columns=headers) # Evaluating similarities on basePred
+    K1, K2, LMB, LEV_TH = 20, 5, 0.1, 1
+    for sim_fun in [pearsonSimilarity, cosineSimilarity, jaccardSimilarity, euclideanDistance, manhattanDistance]:
+        recc = Recommender(sim_fun, K1, K2, LMB, LEV_TH) 
+        mean_err, std_err, max_err, mean_time = evaluatePred(df, sample, recc)
+        new_row = ['basePred', sim_fun.__name__, K1, np.nan, np.nan, np.nan, mean_err, std_err, max_err, mean_time]
+        stats.loc[len(stats)] = new_row
 
-    # print(stats)
-    # stats.to_csv('similarities.csv', index=False)
+    print(stats)
+    stats.to_csv('similarities.csv', index=False)
 
     
     # stats = pd.DataFrame(columns=headers) # Evaluating k2 on recursivePred
